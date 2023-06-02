@@ -1,0 +1,178 @@
+---
+title: "Stat 437 HW2"
+author: 
+     - Nam Jun Lee (11606459)
+header-includes:
+   - \usepackage{bbm}
+   - \usepackage{amssymb}
+   - \usepackage{amsmath}
+   - \usepackage{graphicx,float}
+   - \usepackage{natbib}
+output:
+  html_document: default
+fontsize: 11pt
+---
+
+```{r, include=FALSE, echo=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=60),tidy=TRUE)
+library(dplyr)
+library(ggplot2)
+library(nycflights13)
+library(igraph)
+library(igraphdata)
+library(plotly)
+library(shiny)
+```
+
+# General rule
+
+Please show your work and submit your computer codes in order to get points. Providing correct answers without supporting details does not receive full credits. This HW covers:
+
+- Advanced Visualizations via ggplot2: adjusting legends, fonts, orientation, and math expressions
+- Visualizing networks as graphs
+- Interactive visualization 
+
+You DO NOT have to submit your HW answers using typesetting software. However, your answers must be legible for grading. Please upload your answers to the course space.
+
+# Problem 1
+
+Please refer to the NYC flight data `nycflights13` that has been discussed in the lecture notes and whose manual can be found at https://cran.r-project.org/web/packages/nycflights13/index.html. We will use `flights`, a tibble from `nycflights13`.
+
+
+You are interested in looking into the average `arr_delay` for 4 different `month` 12, 1, 7 and 8, for 3 different `carrier` "UA", "AA" and "DL", and for `distance` that are greater than 700 miles, since you suspect that colder months and longer distances may result in longer average arrival delays. Note that you need to extract observations from `flights`, and that you are required to use `dplyr` for this purpose. 
+
+The following tasks and questions are based on the extracted observations.
+
+(1.a) For each combination of the values of `carrier` and `month`, obtain the average `arr_delay` and obtain the average `distance`. Plot the average `arr_delay` against the average `distance`, use `carrier` as facet; add a title "Base plot" and center the title in the plot. This will be your base plot, say, as object `p`. Show the plot `p`.
+
+```{r 1a}
+# select row from flights, for which month is 12, 1, 7, 8, and carrier is UA, AA, DL, and distance that are greater than 700
+a <- flights %>% 
+   filter(month %in% c(12,1,7,8),
+          carrier %in% c("UA", "AA", "DL"),
+          distance > 700)
+# remove rows that gave any NA
+a = na.omit(a)
+# combination of the values carrier and month, compute the average of arr_delay and distance
+a1 <- a %>% 
+   group_by(month, carrier) %>% 
+   summarise(avg_arr_delay = mean(arr_delay),
+             avg_distance = mean(distance),
+             .groups = "keep") %>% 
+   as.data.frame()
+a1               
+# base plot
+p = ggplot(a1, aes(x=avg_arr_delay, y=avg_distance)) +
+   geom_point() +
+   facet_wrap(~carrier) +
+   ggtitle("Base plot") +
+   xlab("arr_delay") +
+   ylab("distance") +
+   theme(plot.title = element_text(hjust = 0.5))
+# show the plot 
+p
+```
+
+As a result of the base plot, it can be seen that DL carrier have the shortest distance and UA carrier have significantly longer distance than AA and DL. In addition, it can be seen that AA carrier has the lowest average arrival delay among the three airlines.
+
+(1.b) Modify `p` as follows to get a plot `p1`: connect the points for each `carrier` via one type of dashed line; code the 3 levels of `carrier` as $\alpha_1$, $\beta_{1,2}$ and $\gamma^{[0]}$, and display them in the strip texts; change the legend title into "My $\zeta$" (this legend is induced when you connect points for each `carrier` by a type of line), and put the legend in horizontal direction at the bottom of the plot; add a title "With math expressions" and center the title in the plot. Show the plot `p1`.
+
+```{r 1b}
+# strip texts using math expression
+stp = c(expression(alpha[1]),
+        expression(beta[1][2]),
+        expression(gamma^'[0]'))
+# create variable DF with levels 
+a1$DF = factor(a1$carrier, labels=stp)
+# check levels are labelled correctly
+a1 %>%  
+   select(avg_arr_delay, avg_distance, carrier, DF) %>% 
+   group_by(carrier) %>% 
+   slice(1)
+# modify legend title
+s1 = expression(paste("My ", zeta, sep=""))
+# plot p1
+p1 = ggplot(a1, aes(x=avg_arr_delay, y=avg_distance)) +
+   geom_point() +
+   facet_wrap(~DF, labeller = label_parsed) +
+   ggtitle("With math expressions") +
+   xlab("arr_delay") +
+   ylab("distance") +
+   theme(plot.title = element_text(hjust = 0.5)) +
+   geom_line(aes(linetype = carrier), size= 0.3) +
+   scale_linetype_manual(values=rep("dashed", 3)) +
+   labs(linetype = s1) +
+   theme(legend.position = "bottom",
+         legend.direction = "horizontal")
+# show plot
+p1
+```
+
+The results of the above graph are the same as the results of base plot, and the title and strip texts, and the title of the legend have been changed, and it can be seen that the points of each carrier stamped with 1.a are connected.
+
+(1.c) Modify `p1` as follows to get a plot `p2`: set the font size of strip text to be 12 and rotate the strip texts counterclockwise by 15 degrees; set the font size of the x-axis text to be 10 and rotate the x-axis text clockwise by 30 degrees; set the x-axis label as "$\hat{\mu}$ for mean arrival delay"; add a title "With front and text adjustments" and center the title in the plot. Show the plot `p2`
+
+```{r 1c}
+# set x-axis label
+xa <- expression(paste(hat(mu), " for mean arrival delay", sep = ""))
+# set p2
+p2 = ggplot(a1, aes(x=avg_arr_delay, y=avg_distance)) +
+   geom_point() +
+   facet_wrap(~DF, labeller = label_parsed) +
+   geom_line(aes(linetype = carrier), size= 0.3) +
+   scale_linetype_manual(values=rep("dashed", 3)) +
+   labs(linetype = s1) +
+   theme(legend.position = "bottom",
+         legend.direction = "horizontal") +
+   theme(strip.text = element_text(size=12, angle=15),
+                axis.text.x = element_text(size = 10, angle=-30)) +
+   xlab(xa) +
+   ggtitle("With front and text adjustments") +
+   theme(plot.title = element_text(hjust = 0.5))
+# show p2 plot
+p2
+```
+
+The result of this graph is the same as the base plot, and it can be seen that the title, and the text of each legend, was changed from the graph shown in 1.b, and the angle of the strip text and size were adjusted.
+
+# Problem 2 
+
+This problem requires you to visualize the binary relationship between members of a karate club as an undirected graph. Please install the R library `igraphdata`, from which you can obtain the data set `karate` and work on it. Create a graph for `karate`. Once you obtain the graph, you will see that each vertex is annotated by a number or letter. What do the numbers or letters refer to? Do you see subgraphs of the graph? If so, what do these subgraphs mean? 
+
+```{r pb2, fig.height=5, fig.width=7}
+# import data
+data(karate)
+# remove multiple edges and loops
+net = simplify(karate, remove.multiple=T, remove.loops=T)
+# show plot
+plot(net)
+# edges of the karate
+E(net)
+# vertices of the karate
+V(net)
+```
+
+There are 34 vertices in this graph, two of which are alphabets H and A. H stands for a karate instructor under the pseudonym Mr. High, and A is Chairman John A. In addition, the number of 32 vertices means members of the university karate club.  
+Here, when see that vertices are divided into two colors, it can be seen that there is a subgraph. This means that the karate club between the two factions between John A. and Mr. High is divided into two.
+
+# Problem 3
+
+This problem requires to to create an interactive plot using `plotly`. If you want to display properly the plot in your HW answers, you may well need to set your HW document as an html file (instead of doc, docx or pdf file) when you compile your R codes.
+
+Please use the `mpg` data set we have discussed in the lectures. Create an interactive, scatter plot between "highway miles per gallon" `hwy` (on the y-axis) and "engine displacement in litres" `displ` (on the x-axis) with the `color` aesthetic designated by "number of cylinders" `cyl`, and set the x-axis label as "highway miles per gallon" and y-axis label as "highway miles per gallon". You need to check the object type for `cyl` and set it correctly when creating the plot. Add the title "# of cylinders" to the legend and adjust the vertical position of the legend, if you can. For the last, you may look through https://plotly.com/r/legend/ for help.
+
+```{r pb3}
+# set plot
+m1 = plot_ly(mpg, x = ~displ, y= ~hwy,
+            color = ~as.factor(cyl), 
+            type = "scatter",
+            mode = "markers") %>% 
+   layout(xaxis = list(title = "engine displacement in litres"),
+          yaxis = list(title = "highway miles per gallon"),
+          legend = list(title = list(text="<b># of cylinders </b>"), x= 100, y= 0.5))
+# show plot
+m1
+```
+
+This graph shows that the higher the number of cylinders, the higher the engine displacement in liters and the lower the highway miles per gallon. In addition, it can be seen that the distribution of the 5 cylinder is significantly smaller than that of other cylinders.
